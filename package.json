@@ -1,0 +1,24 @@
+{
+  "name": "taskinter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "compile": "tsc",
+    "start": "npm run compile  && ts-node main.ts",
+    
+
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.4",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.3.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  }
+}
