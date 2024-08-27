@@ -24,7 +24,6 @@ This project demonstrates how to integrate with the Wrike API using Node.js. Fol
 
     ```plaintext
     API_TOKEN=your_token_here
-    FILE_NAME=your_file_save_path
     ```
 
 ### 5. Install the Required Packages
