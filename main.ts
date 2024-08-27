@@ -15,7 +15,7 @@ dotenv.config()
 // // ticket_url => 'permalink'
 
 const API_TOKEN = process.env.API_TOKEN as string ;
-const API = process.env.API as string ;
+const API:string = 'https://www.wrike.com/api/v4/tasks'
 
 class Task { 
     id!: string 
@@ -53,6 +53,7 @@ const config: AxiosRequestConfig = {
     
     const response =  await axios.get(API, { headers });
     const data = response.data;
+    console.log(data)
     const tasks: Task[] = data.data.map((d: MyData )=> ({
         id: d.id,
         name: d.title,
@@ -73,7 +74,7 @@ const config: AxiosRequestConfig = {
         
     const fileSaveData = JSON.stringify({...data})
 
-    fs.writeFile(`${process.env.FILE_NAME}`, fileSaveData, (err) => {
+    fs.writeFile('task.json', fileSaveData, (err) => {
         if (err) throw err;
         console.log('File has been saved!');
       });
