@@ -1,4 +1,0 @@
-statusy status lini 
-env i mejic  hanel sax token
-npm starter dzel 
-
