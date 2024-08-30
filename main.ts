@@ -82,43 +82,50 @@ async function getWrikeProjectsId(): Promise <Project[]> {
     })
 
 
-
-
-
-
     return Projectinfo;
 }
 
 
-async function getWrikeTask(Myproject: Project[]) {
-    const tasks: { [key: string]: Task[] } = {};
 
+
+
+async function getWrikeTask(myProject: Project[]) {
+    // Use a new array to hold tasks if they should be separate
     await Promise.all(
-        Myproject.map(async (e: Project) => {
-            const API_TASK = `https://www.wrike.com/api/v4/folders/${e.id}/tasks?fields=[responsibleIds]`;
+        myProject.map(async (project: Project) => {
+            const API_TASK = `https://www.wrike.com/api/v4/folders/${project.id}/tasks?fields=[responsibleIds]`;
             const response = await axios.get(API_TASK, { headers });
             const data = response.data;
-            e["tasks"] = data.data.map((d: MyData) => ({
-                id: d.id,
-                name: d.title,
-                assignee: d.accountId,
-                status: d.status,
-                collections: d.parentIds,
-                created_at: d.createdDate,
-                updated_at: d.updatedDate,
-                ticket_url: d.permalink,
-                users: d.responsibleIds,
+
+            project.tasks = await Promise.all(data.data.map(async (d: MyData) => {
+                const userDataList = await Promise.all(d.responsibleIds.map(async (e: string) => {
+                    const API_USER = `https://www.wrike.com/api/v4/users/${e}`;
+                    const userResponse = await axios.get(API_USER, { headers });
+                    return userResponse.data.data[0];
+                }));
+
+                return {
+                    id: d.id,
+                    name: d.title,
+                    status: d.status,
+                    collections: d.parentIds,
+                    created_at: d.createdDate,
+                    updated_at: d.updatedDate,
+                    ticket_url: d.permalink,
+                    assignees: userDataList,
+                };
             }));
         })
     );
-    return Myproject;
+
+    return myProject;
 }
-    
+
 
 
  function writeJson(data: Project[]){
         
-    const fileSaveData = JSON.stringify([data],null, 2)
+    const fileSaveData = JSON.stringify(data,null, 2)
 
     fs.writeFile('task.json', fileSaveData, (err) => {
         if (err) throw err;
@@ -130,6 +137,5 @@ async function getWrikeTask(Myproject: Project[]) {
 (async () => {
     const elementArray: Project[] = await getWrikeProjectsId();
     const Myproject = await getWrikeTask(elementArray);
-    console.log(Myproject)
     writeJson(Myproject);
 })();
