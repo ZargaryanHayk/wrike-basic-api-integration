@@ -22,14 +22,17 @@ interface Project {
 
     project: {
         ownerIds: string[]
+        createdDate: string;
+        completedDate: string;
     },
     title:string;
-    id: string
+    id: string;
+    tasks:object
+   
+
 }
 
 interface Task { 
-
-   
 
         id: string 
         name: string 
@@ -38,7 +41,8 @@ interface Task {
         collections: string 
         created_at: string 
         updated_at: string 
-        ticket_url: string  
+        ticket_url: string 
+        users:string[]
     
 }
 interface MyData{
@@ -50,6 +54,8 @@ interface MyData{
     createdDate: string 
     updatedDate: string 
     permalink: string
+    responsibleIds: string[] 
+
 }
 
 
@@ -57,27 +63,42 @@ const headers = {
     'Authorization': `bearer ${API_TOKEN}`
 }
 
-async function getWrikeProjectsId(): Promise<[string, string][]> {
+async function getWrikeProjectsId(): Promise <Project[]> {
     const response = await axios.get(API_PROJECT, { headers });
     const data = response.data;
-    const idAndTitle: [string, string][] = data.data
-        .filter((element: Project) => element.project && element.title)
-        .map((element: Project) => [element.id, element.title] as [string, string]);
+    ;
 
-    return idAndTitle;
+    const Projectinfo : Project[] = data.data
+    .filter((element: Project) => element.project && element.title)
+    .map((element: Project) => {
+        return{
+            name:element.title,
+            id:element.id,
+            createdDate: element.project.createdDate,
+            completedDate: element.project.completedDate
+
+        }
+
+    })
+
+
+
+
+
+
+    return Projectinfo;
 }
 
 
- async function  getWrikeTask(elementArray: [string,string][]) {
+async function getWrikeTask(Myproject: Project[]) {
+    const tasks: { [key: string]: Task[] } = {};
 
-        const tasks: { [key: string]: Task[] } = {};
-
-        for(const [id, title] of elementArray){
-
-            const API_TASK:string = `https://www.wrike.com/api/v4/folders/${id}/tasks`
-            const response =  await axios.get(API_TASK, { headers });
+    await Promise.all(
+        Myproject.map(async (e: Project) => {
+            const API_TASK = `https://www.wrike.com/api/v4/folders/${e.id}/tasks?fields=[responsibleIds]`;
+            const response = await axios.get(API_TASK, { headers });
             const data = response.data;
-            tasks[title] = data.data.map((d: MyData) => ({
+            e["tasks"] = data.data.map((d: MyData) => ({
                 id: d.id,
                 name: d.title,
                 assignee: d.accountId,
@@ -86,19 +107,18 @@ async function getWrikeProjectsId(): Promise<[string, string][]> {
                 created_at: d.createdDate,
                 updated_at: d.updatedDate,
                 ticket_url: d.permalink,
+                users: d.responsibleIds,
             }));
-            
-            }; 
-            
-        return tasks
+        })
+    );
+    return Myproject;
 }
-
     
 
 
- function writeJson(data: { [key: string]: Task[] }){
+ function writeJson(data: Project[]){
         
-    const fileSaveData = JSON.stringify({...data})
+    const fileSaveData = JSON.stringify([data],null, 2)
 
     fs.writeFile('task.json', fileSaveData, (err) => {
         if (err) throw err;
@@ -108,7 +128,8 @@ async function getWrikeProjectsId(): Promise<[string, string][]> {
 }
 
 (async () => {
-    const elementArray: [string, string][] = await getWrikeProjectsId();
-    const tasks = await getWrikeTask(elementArray);
-    writeJson(tasks);
+    const elementArray: Project[] = await getWrikeProjectsId();
+    const Myproject = await getWrikeTask(elementArray);
+    console.log(Myproject)
+    writeJson(Myproject);
 })();
