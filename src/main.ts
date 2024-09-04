@@ -3,6 +3,7 @@ import { log, profile } from 'console';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import { get } from 'http';
+import { PassThrough } from 'stream';
 
 
 dotenv.config()
@@ -30,13 +31,7 @@ interface IProject {
     title:string;
     id: string;
     tasks:object[]
-   
-
 }
-
-
-
-
 
 interface Task {
     id: string;
@@ -46,16 +41,23 @@ interface Task {
     created_at: string;
     updated_at: string;
     ticket_url: string;
-    assignees: {
+    users: string[];
+    assignees: object[]
+    
+}
+
+interface User {
+        id:string    
         firstName: string;
         lastName: string;
-        primaryEmail: string;
+        Email: string;
         profiles: {
             admin: boolean;
             owner: boolean;
         };
-    }[];
+    
 }
+
 
 interface IsendedData{
     id: string 
@@ -90,46 +92,26 @@ async function getWrikeProjectsId(): Promise <IProject[]> {
             createdDate: element.project.createdDate,
             completedDate: element.project.completedDate,
             tasks: []
-            
-
         }
-
     })
 
 
     return Projectinfo;
 }
 
-async function getWrikeTask(): Promise<Task[]> {
+async function getWrikeTask(): Promise<{ allTasks: Task[], uniqueIds: Set<string> }> {
+    
+    const uniqueId: string[] = [];
+
     try {
         const response = await axios.get('https://www.wrike.com/api/v4/tasks?fields=[parentIds,sharedIds]', { headers });
         const body: IsendedData[] = response.data.data;
 
-        const allTasks = await Promise.all(body.map(async (d: IsendedData) => {
-            const assignees = [];
-
+        const allTasks = body.map((d)=> {
             for (const id of d.sharedIds) {
-                try {
-                    const userResponse = await axios.get(`https://www.wrike.com/api/v4/users/${id}`, { headers });
-                    const userBody = userResponse.data;
-
-                    for (const u of userBody.data) {
-                        assignees.push({
-                            firstName: u.firstName,
-                            lastName: u.lastName,
-                            primaryEmail: u.primaryEmail,
-                            profiles: {
-                                admin: u.profiles[0].admin,
-                                owner: u.profiles[0].owner,
-                            },
-                        });
-                    }
-                } catch (error) {
-                    console.error(`Failed to fetch user with id ${id}:`, error);
-                }
+                uniqueId.push(id);
             }
-
-            return {
+            return{
                 id: d.id,
                 name: d.title,
                 status: d.status,
@@ -137,16 +119,75 @@ async function getWrikeTask(): Promise<Task[]> {
                 created_at: d.createdDate,
                 updated_at: d.updatedDate,
                 ticket_url: d.permalink,
-                assignees: assignees,
+                users: d.sharedIds,
+                assignees: []
+                
             };
-        }));
 
-        return allTasks;
+            
+        })
+
+        
+        const uniqueIdsSet = new Set(uniqueId);
+
+        return { allTasks, uniqueIds: uniqueIdsSet };
+        
     } catch (error) {
-        console.error('Failed to fetch tasks:', error);
-        return [];
+        console.error('Error fetching tasks:', error);
+        
+        throw error; 
     }
 }
+
+
+async function getUserData(uniqueIds:Set<String>) :Promise<User[]>{
+    
+    const usersData = [] 
+
+    try{
+
+        for(const id of uniqueIds){
+            
+            const response = await axios.get(`https://www.wrike.com/api/v4/users/${id}`,{headers}) 
+            const body = response.data.data
+            usersData.push(
+                {
+                    id:         body[0].id,
+                    firstName:  body[0].firstName,
+                    lastName:   body[0].lastName,
+                    Email:      body[0].primaryEmail,
+                    profiles:{
+                        admin:  body[0].profiles[0].admin,
+                        owner:  body[0].profiles[0].owner
+                    }})}
+    }catch{
+        null
+    }
+    return usersData
+
+
+}
+
+
+
+function joiningTask2assignees(allTasks:Task[],userData:User[] ){
+
+
+    for(const userId of allTasks){
+        for(const user of userData){
+           if( userId.users.includes(user.id)){
+            userId.assignees.push(user)
+           }
+
+        }
+    }
+
+    return allTasks;
+    
+
+
+}
+
 
 
 function joiningProject2Task(projects:IProject[],task:Task[]) {
@@ -182,7 +223,10 @@ async function writeJson(data: object[]){
 
 (async () => {
     const Projects: IProject[] = await getWrikeProjectsId();
-    const task = await getWrikeTask();
+    const {allTasks, uniqueIds}  = await getWrikeTask();
+   
+    const userData = await getUserData(uniqueIds)
+    const task = joiningTask2assignees(allTasks,userData)
     const finalData = joiningProject2Task(Projects,task)
     await writeJson(finalData);
 })();
