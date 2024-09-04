@@ -104,7 +104,6 @@ async function getWrikeTask(myProject: Project[]) {
                 for (const e of d.responsibleIds) {
                     const API_USER = `https://www.wrike.com/api/v4/users/${e}`;
                     const userResponse = await axios.get(API_USER, { headers });
-                    console.log(userResponse.data.data[0])
                     userDataList.push(
                         {
                             id:         userResponse.data.data[0].id,
@@ -120,7 +119,7 @@ async function getWrikeTask(myProject: Project[]) {
                                         }
                             
                         }
-                    );
+                    )
                 }
 
                 project.tasks.push({
@@ -143,19 +142,23 @@ async function getWrikeTask(myProject: Project[]) {
 }
 
 
- function writeJson(data: Project[]){
+async function writeJson(data: Project[]){
         
     const fileSaveData = JSON.stringify(data,null, 2)
 
-    fs.writeFile('task.json', fileSaveData, (err) => {
-        if (err) throw err;
-        console.log('File has been saved!');
-      });
+  new Promise(function(resolve, reject) {
+    fs.writeFile("task.json", fileSaveData, function(err) {
+        if (err){
+            reject(err);
+        } 
+        else resolve(data);
+    });
+})
 
 }
 
 (async () => {
     const elementArray: Project[] = await getWrikeProjectsId();
     const Myproject = await getWrikeTask(elementArray);
-    writeJson(Myproject);
+    await writeJson(Myproject);
 })();
