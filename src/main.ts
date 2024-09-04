@@ -1,9 +1,7 @@
-import axios, { all, AxiosRequestConfig } from 'axios';
-import { log, profile } from 'console';
+import axios from 'axios';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
-import { get } from 'http';
-import { PassThrough } from 'stream';
+
 
 
 dotenv.config()
