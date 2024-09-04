@@ -1,4 +1,5 @@
 import axios, { AxiosRequestConfig } from 'axios';
+import { profile } from 'console';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 
@@ -27,7 +28,7 @@ interface Project {
     },
     title:string;
     id: string;
-    tasks:object
+    tasks:object[]
    
 
 }
@@ -45,6 +46,7 @@ interface Task {
         users:string[]
     
 }
+
 interface MyData{
     id: string 
     title: string 
@@ -90,21 +92,38 @@ async function getWrikeProjectsId(): Promise <Project[]> {
 
 
 async function getWrikeTask(myProject: Project[]) {
-    // Use a new array to hold tasks if they should be separate
-    await Promise.all(
-        myProject.map(async (project: Project) => {
+    try {
+        for (const project of myProject) {
             const API_TASK = `https://www.wrike.com/api/v4/folders/${project.id}/tasks?fields=[responsibleIds]`;
             const response = await axios.get(API_TASK, { headers });
             const data = response.data;
 
-            project.tasks = await Promise.all(data.data.map(async (d: MyData) => {
-                const userDataList = await Promise.all(d.responsibleIds.map(async (e: string) => {
+            project.tasks = [];
+            for (const d of data.data) {
+                const userDataList = [];
+                for (const e of d.responsibleIds) {
                     const API_USER = `https://www.wrike.com/api/v4/users/${e}`;
                     const userResponse = await axios.get(API_USER, { headers });
-                    return userResponse.data.data[0];
-                }));
+                    console.log(userResponse.data.data[0])
+                    userDataList.push(
+                        {
+                            id:         userResponse.data.data[0].id,
+                            firstName:  userResponse.data.data[0].firstName,
+                            lastName:   userResponse.data.data[0].lastName,
+                            email:      userResponse.data.data[0].primaryEmail,
+                            profil:    
+                                        {
+                                            role: userResponse.data.data[0].profiles[0].role,
+                                            admin: userResponse.data.data[0].profiles[0].admin,
+                                            owner: userResponse.data.data[0].profiles[0].owner
+                                            
+                                        }
+                            
+                        }
+                    );
+                }
 
-                return {
+                project.tasks.push({
                     id: d.id,
                     name: d.title,
                     status: d.status,
@@ -113,14 +132,15 @@ async function getWrikeTask(myProject: Project[]) {
                     updated_at: d.updatedDate,
                     ticket_url: d.permalink,
                     assignees: userDataList,
-                };
-            }));
-        })
-    );
+                });
+            }
+        }
+    } catch (error) {
+        console.error('An error occurred:', error);
+    }
 
     return myProject;
 }
-
 
 
  function writeJson(data: Project[]){
